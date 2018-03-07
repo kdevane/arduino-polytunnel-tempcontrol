@@ -9,8 +9,10 @@
 Adafruit_BME280 bme; // I2C
 
 // constants won't change :
-const long tempinterval = 300000;           // interval at which to blink (milliseconds)
-unsigned long previousMillis = 0;        // will store last time LED was updated
+// how often to log the temperature in miliseconds
+const long tempinterval = 300000;        // 30 seconds
+unsigned long previousMillis = 0;        //
+// variables to store the max and min temperatures records
 float maxtemp = 0.00;
 float mintemp = 100.00;
 // Set temperature at which to open or close the door
@@ -25,9 +27,12 @@ const float closetemp = 24.00;
 #endif
 
 U8G2_SSD1306_128X64_NONAME_1_4W_SW_SPI u8g2(U8G2_R0, /* clock=*/ 13, /* data=*/ 11, /* cs=*/ 10, /* dc=*/ 9, /* reset=*/ 8);
-
-//push button between pin2 & gnd no resistor needed as internal used
-// Relay 3 & 4 connection pins
+/*
+* push button between pin2 & gnd no resistor needed as internal used
+* Relay is using pins 3 & 4
+* connection to the linear acutator may need to be reversed if working
+*  in the wrong direction
+*/
 #define DoorAOpen 4
 #define DoorAClose 3
 #define LED_BUILTIN 13
@@ -35,11 +40,19 @@ int stateDoorAOpen = LOW;
 int stateDoorAClose = LOW;
 int laststateDoorA = LOW; // Door 1 Closed when LOW
 int stateDoorA = LOW;
+// relayOnTime is the amount of time it takes to open the door fully
+// timed how long it took the actuator to extent far enough
+// on a full battery charge that the door was held firmly open.
 int relayOnTime = 13000;
+// relayCloseTime needs to be long enough to make sure the door closes
+// fully even at a lower battery charge i've allowed +7 seconds
 int relayCloseTime = 20000;
-// the following variables are unsigned long's because the time, measured in miliseconds,
-// will quickly become a bigger number than can be stored in an int.
-unsigned long lastDebounceTime = 0;  // the last time the output pin was toggled
+// the following variables are unsigned long's because the time,
+// measured in miliseconds, will quickly become a bigger number than
+// can be stored in an int.
+
+// the last time the output pin was toggled
+unsigned long lastDebounceTime = 0;
 unsigned long debounceDelay = 50;    // the debounce time; increase if the output flickers
 
 int lastButtonState = HIGH;
@@ -49,17 +62,17 @@ void setup() {
   // put your setup code here, to run once:
   Serial.begin(9600);
   Serial.println("setup");
-// Initialise BME280
-bme.begin();
+  // Initialise BME280
+  bme.begin();
 
-u8g2.begin();
+  u8g2.begin();
 //delay(2000);
-u8g2.firstPage();
-  do {
-    u8g2.setFont(u8g2_font_ncenB08_tf); // u8g2_font_ncenB14_tr
-    u8g2.drawStr(0,14,"Stand By!");
-    u8g2.drawStr(0,28,"Setting Doors....");
-  } while ( u8g2.nextPage() );
+  u8g2.firstPage();
+    do {
+      u8g2.setFont(u8g2_font_ncenB08_tf); // u8g2_font_ncenB14_tr
+      u8g2.drawStr(0,14,"Stand By!");
+      u8g2.drawStr(0,28,"Setting Doors....");
+    } while ( u8g2.nextPage() );
 
   //configure pin2 as an input and enable the internal pull-up resistor
   pinMode(2, INPUT_PULLUP);
@@ -71,17 +84,9 @@ u8g2.firstPage();
   digitalWrite( DoorAOpen, HIGH );
   delay(2000);
 
+  // Start off by setting the actuator in the closed state
   closedoor();
   printValuesOnly(laststateDoorA);
-/*
-
-  u8g2.begin();
-  u8g2.firstPage();
-  do {
-    u8g2.setFont(u8g2_font_ncenB08_tf); // u8g2_font_ncenB14_tr
-    u8g2.drawStr(0,14,"Ready ...");
-  } while ( u8g2.nextPage() );
-*/
 
 }
 
@@ -103,8 +108,7 @@ void closedoor() {
   u8g2.begin();
   u8g2.firstPage();
   do {
-    u8g2.setFont(u8g2_font_ncenB08_tf); // u8g2_font_ncenB14_tr
-    //u8g2.drawStr(0,14,"Stand By!");
+    u8g2.setFont(u8g2_font_ncenB08_tf);
     u8g2.drawStr(0,28,"Closing Doors....");
   } while ( u8g2.nextPage() );
 
@@ -112,6 +116,7 @@ void closedoor() {
   delay(relayCloseTime);
   digitalWrite(DoorAClose,HIGH);
   delay(2000);
+  // needed a delay here - cannot remember why ?
 //  readymessage( stateDoorA );
 }
 
@@ -120,7 +125,6 @@ void opendoor() {
   u8g2.firstPage();
   do {
     u8g2.setFont(u8g2_font_ncenB08_tf); // u8g2_font_ncenB14_tr
-    //u8g2.drawStr(0,14,"Stand By!");
     u8g2.drawStr(0,28,"Opening Doors....");
   } while ( u8g2.nextPage() );
 
@@ -145,116 +149,80 @@ void printValues( int dstate ) {
       laststateDoorA = LOW;
       dstate = laststateDoorA;
     }
-/*    Serial.print("Temperature = ");
-    Serial.print(temperature);
-    Serial.println(" *C");
 
-    Serial.print("Pressure = ");
-
-    Serial.print(bme.readPressure() / 100.0F);
-    Serial.println(" hPa");
-
-    Serial.print("Approx. Altitude = ");
-    Serial.print(bme.readAltitude(SEALEVELPRESSURE_HPA));
-    Serial.println(" m");
-*/
   float humidity = bme.readHumidity();
-/*    Serial.print("Humidity = ");
-    Serial.print(humidity);
-    Serial.println(" %");
 
-    Serial.println();
-  */
-u8g2.firstPage();
-do {
-    u8g2.setFont(u8g2_font_helvB08_tf); // u8g2_font_ncenB14_tr u8g2_font_ncenB08_tf
-    u8g2.setCursor(0, 14);
-    if ( dstate ) {
-      u8g2.print("Door Open ");
-    } else {
-      u8g2.print("Door Closed ");
-    }
+  u8g2.firstPage();
+  do {
+      u8g2.setFont(u8g2_font_helvB08_tf);
+      u8g2.setCursor(0, 14);
+      if ( dstate ) {
+        u8g2.print("Door Open ");
+      } else {
+        u8g2.print("Door Closed ");
+      }
 
-    u8g2.setCursor(0, 28);
-    u8g2.print("Temperature ");
-    u8g2.print(temperature);
-    u8g2.print(" *C");
+      u8g2.setCursor(0, 28);
+      u8g2.print("Temperature ");
+      u8g2.print(temperature);
+      u8g2.print(" *C");
 
-    u8g2.setCursor(0, 42);
-    u8g2.print("min ");
-    u8g2.print(mintemp);
-    u8g2.print(" *C max ");
-    u8g2.print(maxtemp);
-    u8g2.print(" *C");
+      u8g2.setCursor(0, 42);
+      u8g2.print("min ");
+      u8g2.print(mintemp);
+      u8g2.print(" *C max ");
+      u8g2.print(maxtemp);
+      u8g2.print(" *C");
 
-    u8g2.setCursor(0, 56);
-    u8g2.print("Humidity ");
-    //u8g2.setCursor(40, 56);
-    u8g2.print(humidity);
-    u8g2.print(" %");
-  } while ( u8g2.nextPage() );
+      u8g2.setCursor(0, 56);
+      u8g2.print("Humidity ");
+      //u8g2.setCursor(40, 56);
+      u8g2.print(humidity);
+      u8g2.print(" %");
+    } while ( u8g2.nextPage() );
 
 }
 
 void printValuesOnly( int dstate ) {
-    float temperature = bme.readTemperature();
-/*    Serial.print("Temperature = ");
-    Serial.print(temperature);
-    Serial.println(" *C");
+  float temperature = bme.readTemperature();
 
-    Serial.print("Pressure = ");
-
-    Serial.print(bme.readPressure() / 100.0F);
-    Serial.println(" hPa");
-
-    Serial.print("Approx. Altitude = ");
-    Serial.print(bme.readAltitude(SEALEVELPRESSURE_HPA));
-    Serial.println(" m");
-*/
   float humidity = bme.readHumidity();
-/*    Serial.print("Humidity = ");
-    Serial.print(humidity);
-    Serial.println(" %");
+  u8g2.firstPage();
+  do {
+      u8g2.setFont(u8g2_font_helvB08_tf); // u8g2_font_ncenB14_tr u8g2_font_ncenB08_tf
+      u8g2.setCursor(0, 14);
+      if ( dstate ) {
+        u8g2.print("Door Open ");
+      } else {
+        u8g2.print("Door Closed ");
+      }
 
-    Serial.println();
-  */
-u8g2.firstPage();
-do {
-    u8g2.setFont(u8g2_font_helvB08_tf); // u8g2_font_ncenB14_tr u8g2_font_ncenB08_tf
-    u8g2.setCursor(0, 14);
-    if ( dstate ) {
-      u8g2.print("Door Open ");
-    } else {
-      u8g2.print("Door Closed ");
-    }
+      u8g2.setCursor(0, 28);
+      u8g2.print("Temperature ");
+      u8g2.print(temperature);
+      u8g2.print(" *C");
 
-    u8g2.setCursor(0, 28);
-    u8g2.print("Temperature ");
-    u8g2.print(temperature);
-    u8g2.print(" *C");
+      u8g2.setCursor(0, 42);
+      u8g2.print("min ");
+      u8g2.print(mintemp);
+      u8g2.print(" *C max ");
+      u8g2.print(maxtemp);
+      u8g2.print(" *C");
 
-    u8g2.setCursor(0, 42);
-    u8g2.print("min ");
-    u8g2.print(mintemp);
-    u8g2.print(" *C max ");
-    u8g2.print(maxtemp);
-    u8g2.print(" *C");
-
-    u8g2.setCursor(0, 56);
-    u8g2.print("Humidity ");
-    //u8g2.setCursor(40, 56);
-    u8g2.print(humidity);
-    u8g2.print(" %");
-  } while ( u8g2.nextPage() );
-
+      u8g2.setCursor(0, 56);
+      u8g2.print("Humidity ");
+      //u8g2.setCursor(40, 56);
+      u8g2.print(humidity);
+      u8g2.print(" %");
+    } while ( u8g2.nextPage() );
 }
+
 void loop() {
   unsigned long currentMillis = millis();
 
-  // put your main code here, to run repeatedly:
   //read the pushbutton value into a variable
   int sensorVal = digitalRead(2);
-  //Serial.println(sensorVal);
+
   // If the switch changed, due to noise or pressing:
   if (sensorVal != lastButtonState) {
     // reset the debouncing timer
@@ -263,9 +231,6 @@ void loop() {
 
   if ((millis() - lastDebounceTime) > debounceDelay) {
 
-
-  //print out the value of the pushbutton
-  //Serial.println("sensorVal" + laststateDoorA );
     if (sensorVal == HIGH) {
       digitalWrite(13, LOW);
     } else {
@@ -273,14 +238,12 @@ void loop() {
       delay( 500 );
       int DoorAOpenVal = digitalRead( DoorAOpen );
       int DoorACloseVal = digitalRead( DoorAClose );
-      //Serial.println(laststateDoorA);
+
       if ( laststateDoorA == LOW ) {
-        //Serial.println( "Door was closed" );
         opendoor();
         laststateDoorA = HIGH;
         printValuesOnly( laststateDoorA );
       } else {
-        //Serial.println( "Door was open" );
         closedoor();
         laststateDoorA = LOW;
         printValuesOnly( laststateDoorA );
