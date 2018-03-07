@@ -17,4 +17,4 @@ Library's used that needed to be downloaded and installed
 * Adafruit_BME280
 * Adafruit_Sensor
 
-![alt text](https://github.com/kdevane/arduino-polytunnel-tempcontrol/raw/master/src/schematic.png "Wiring diagram")
+![alt text](arduino-polytunnel-tempcontrol/schematic.png "Wiring diagram")
